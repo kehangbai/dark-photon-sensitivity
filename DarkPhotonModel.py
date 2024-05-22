@@ -48,6 +48,12 @@ class DarkPhotonModel:
         decay_width = self.total_width*(self.eps_list[:, np.newaxis]**2)
         return (1/decay_width)*6.58*1e-25
 
+    def get_ctau(self, m, eps):
+        decay_width = self.total_width * eps * eps
+        tau = (1/decay_width)*6.58*1e-25
+        c = 3*10**8
+        return c*tau
+
     def get_decay_prob(self, boost, ctau):
         return np.exp(-self.Lmin/(boost*ctau))-np.exp(-self.Lmax/(boost*ctau))
     
@@ -111,6 +117,11 @@ class DarkPhotonModel:
         y = self.eps_list
         X, Y = np.meshgrid(x, y)
 
+        # Epsilon for ctau=1 mm
+        y1 = np.sqrt(self.get_ctau(x, 1)/0.0001)
+        y2 = np.sqrt(self.get_ctau(x, 1)/0.001)
+        y3 = np.sqrt(self.get_ctau(x, 1)/0.005)
+
         n_sig_list = self.get_n_sig_list()
     
         N = len(n_sig_list)
@@ -118,6 +129,12 @@ class DarkPhotonModel:
         for i in range(N):
             z = n_sig_list[i]
             cs = ax[i].contourf(X, Y, z, cmap=cm.Blues)
+            ax[i].plot(x, y1, color="dimgray", ls="--")
+            ax[i].annotate(r"$c\tau = 0.1$ mm", (x[-80], y1[-80]), textcoords="offset points", xytext=(0,15), ha='center') 
+            ax[i].plot(x, y2, color="dimgray", ls="--")
+            ax[i].annotate(r"$c\tau = 1$ mm", (x[-80], y2[-80]), textcoords="offset points", xytext=(0,15), ha='center') 
+            ax[i].plot(x, y3, color="dimgray", ls="--")
+            ax[i].annotate(r"$c\tau = 5$ mm", (x[-80], y3[-80]), textcoords="offset points", xytext=(0,15), ha='center') 
             ax[i].set_yscale('log')
             ax[i].set_xscale('log')
             cbar = fig.colorbar(cs)

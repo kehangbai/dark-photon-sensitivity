@@ -1,0 +1,7 @@
+*.png
+*.txt
+
+darkcast/
+.DS_Store
+.ipynb_checkpoints/
+
