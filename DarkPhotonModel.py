@@ -48,8 +48,12 @@ class DarkPhotonModel:
         decay_width = self.total_width*(self.eps_list[:, np.newaxis]**2)
         return (1/decay_width)*6.58*1e-25
 
-    def get_ctau(self, m, eps):
-        decay_width = self.total_width * eps * eps
+    def get_ctau(self, masses, eps):
+        models = darkcast.Models()
+        for name, model in models.items():   
+            # Total decay width assuming epsilon=1
+            total_width = np.array([model.width("total", mass) for mass in masses])
+        decay_width = total_width * eps * eps
         tau = (1/decay_width)*6.58*1e-25
         c = 3*10**8
         return c*tau
@@ -129,11 +133,11 @@ class DarkPhotonModel:
         for i in range(N):
             z = n_sig_list[i]
             cs = ax[i].contourf(X, Y, z, cmap=cm.Blues)
-            ax[i].plot(x, y1, color="dimgray", ls="--")
+            ax[i].plot(x, y1, color="limegreen", ls="--", lw=2)
             ax[i].annotate(r"$c\tau = 0.1$ mm", (x[-80], y1[-80]), textcoords="offset points", xytext=(0,15), ha='center') 
-            ax[i].plot(x, y2, color="dimgray", ls="--")
+            ax[i].plot(x, y2, color="seagreen", ls="--", lw=2)
             ax[i].annotate(r"$c\tau = 1$ mm", (x[-80], y2[-80]), textcoords="offset points", xytext=(0,15), ha='center') 
-            ax[i].plot(x, y3, color="dimgray", ls="--")
+            ax[i].plot(x, y3, color="dimgray", ls="--", lw=2)
             ax[i].annotate(r"$c\tau = 5$ mm", (x[-80], y3[-80]), textcoords="offset points", xytext=(0,15), ha='center') 
             ax[i].set_yscale('log')
             ax[i].set_xscale('log')
@@ -145,3 +149,78 @@ class DarkPhotonModel:
             ax[i].set_title(title_list[i], fontsize=24)
         plt.show
         plt.savefig(f"./HAMA_sensitivity_{self.Lmin*1e3:.0f}mm_{self.Lmax*1e3:.0f}mm.png")
+
+    def get_mass_points(self, x1, x2, x3):
+        # Define the mass points and lifetimes
+        points = [
+            (x1, 0.0001),
+            (x2, 0.001),
+            (x3, 0.005)
+        ]
+
+        all_x_points = []
+        all_y_points = []
+        for x_points, ctau in points:
+            y_points = np.sqrt(self.get_ctau(x_points, 1) / ctau)
+            all_x_points.extend(x_points)
+            all_y_points.extend(y_points)
+        
+        return all_x_points, all_y_points
+    
+    def plot_num_sig_massgrid(self, title_list="Num. events"):
+    
+        x = self.m_Ap
+        y = self.eps_list
+        X, Y = np.meshgrid(x, y)
+
+        # Epsilon for ctau=1 mm
+        y1 = np.sqrt(self.get_ctau(x, 1)/0.0001)
+        y2 = np.sqrt(self.get_ctau(x, 1)/0.001)
+        y3 = np.sqrt(self.get_ctau(x, 1)/0.005)
+
+        n_sig_list = self.get_n_sig_list()
+    
+        N = len(n_sig_list)
+        fig, ax = plt.subplots(1, N, figsize=(10*N,8))
+        for i in range(N):
+            z = n_sig_list[i]
+            cs = ax[i].contourf(X, Y, z, cmap=cm.Blues)
+            
+            # Add ctau lines
+            ax[i].plot(x, y1, color="limegreen", ls="--", lw=2)
+            ax[i].annotate(r"$c\tau = 0.1$ mm", (x[-80], y1[-80]), textcoords="offset points", xytext=(0,15), ha='center') 
+            ax[i].plot(x, y2, color="seagreen", ls="--", lw=2)
+            ax[i].annotate(r"$c\tau = 1$ mm", (x[-80], y2[-80]), textcoords="offset points", xytext=(0,15), ha='center') 
+            ax[i].plot(x, y3, color="dimgray", ls="--", lw=2)
+            ax[i].annotate(r"$c\tau = 5$ mm", (x[-80], y3[-80]), textcoords="offset points", xytext=(0,15), ha='center') 
+
+            # Set the font size
+            font_size = 14
+            
+            # Add markers to mass points
+            if i==0:
+                x_points, y_points = self.get_mass_points(x1=[0.4, 1.2], x2=[0.5, 1.2, 2], x3=[1.2, 3])
+            elif i==1:
+                x_points, y_points = self.get_mass_points(x1=[1.2], x2=[1.2], x3=[1.2])
+            else:
+                print("more than 2 plots?!")
+                x_points, y_points = [], []
+
+            ax[i].scatter(x_points, y_points, color="coral", marker='o', s=100, alpha=1)
+
+            for j in range(len(x_points)):
+                ax[i].annotate(f"{x_points[j]:.1f} GeV", (x_points[j], y_points[j]), textcoords="offset points", xytext=(0,10), ha='center', color="darkorange")        
+
+            # Plotting styles
+            ax[i].set_yscale('log')
+            ax[i].set_xscale('log')
+            cbar = fig.colorbar(cs)
+            ax[i].text(0.5, 0.8, f"$Br(h\\to A'A')=${self.BR_hApAp:.0e}", transform=ax[i].transAxes, fontsize=16, color='black')
+            ax[i].text(0.5, 0.75, f"$L_{{dis}} \in [{self.Lmin*1e3:.0f},{self.Lmax*1e3:.0f}]$ mm", transform=ax[i].transAxes, fontsize=16, color='black')
+            ax[i].set_xlabel(r"$m_{A'}$ (GeV)", fontsize=20)
+            ax[i].set_title(title_list[i], fontsize=24)
+        ax[0].set_ylabel(r"$\epsilon$", fontsize=20)
+        ax[1].set_yticks([])
+        plt.subplots_adjust(wspace=.0, hspace=0)
+        plt.show
+        plt.savefig(f"./HAMA_massgrid_{self.Lmin*1e3:.0f}mm_{self.Lmax*1e3:.0f}mm.png")
